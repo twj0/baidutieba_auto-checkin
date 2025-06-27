@@ -1,7 +1,7 @@
 
 # 百度贴吧自动签到脚本 (Baidu Tieba Auto Sign-in)
 
-
+[![Baidu Tieba Check-in](https://github.com/twj0/baidutieba_auto-checkin/actions/workflows/main.yml/badge.svg)](https://github.com/twj0/baidutieba_auto-checkin/actions/workflows/main.yml)
 
 这是一个利用 **GitHub Actions** 实现的百度贴吧全自动签到脚本，可以帮助你每天自动完成所有关注贴吧的签到任务，无需自己动手或部署服务器。
 
