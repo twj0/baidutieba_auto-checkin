@@ -31,7 +31,7 @@
 
 | Secret 名称          | 描述                                                                                                                              | 是否必须 |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `BDUSS_LIST`         | **你的百度账户 Cookie**。这是脚本登录的唯一凭证。**多个账户请用空格隔开**。例如：`BDUSS_A BDUSS_B`                                       | **是**   |
+| `BDUSS_LIST`         | **你的百度账户 Cookie 里面的 `BDUSS` 值**。这是脚本登录的唯一凭证。**多个账户请用空格隔开**。例如：`BDUSS_A BDUSS_B`                                       | **是**   |
 | `TELEGRAM_BOT_TOKEN` | 你的 Telegram Bot 的 Token。在 Telegram 中向 [@BotFather](https://t.me/BotFather) 发送 `/newbot` 创建机器人即可获取。              | 否       |
 | `TELEGRAM_CHAT_ID`   | 你的 Telegram 用户 ID。向 [@userinfobot](https://t.me/userinfobot) 发送 `/start` 即可获取你的 Chat ID。                            | 否       |
 
