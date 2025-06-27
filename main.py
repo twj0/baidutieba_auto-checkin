@@ -35,21 +35,22 @@ session = requests.Session()
 session.headers.update({'User-Agent': USER_AGENT})
 
 
-def escape_markdown(text: str) -> str:
-    """Escapes special characters for Telegram MarkdownV2."""
-    escape_chars = r'_*[]()~`>#+-=|{}.!'
-    return ''.join(f'\\{char}' if char in escape_chars else char for char in str(text))
+# This function is no longer needed as we are sending plain text.
+# def escape_markdown(text: str) -> str:
+#     """Escapes special characters for Telegram MarkdownV2."""
+#     escape_chars = r'_*[]()~`>#+-=|{}.!'
+#     return ''.join(f'\\{char}' if char in escape_chars else char for char in str(text))
 
 def send_telegram_message(message: str):
-    """Sends a formatted message via Telegram Bot."""
+    """Sends a plain text message via Telegram Bot."""
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         return
 
     api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    # To avoid all formatting issues, we remove 'parse_mode' and send as plain text.
     payload = {
         'chat_id': TELEGRAM_CHAT_ID,
-        'text': message,
-        'parse_mode': 'MarkdownV2'
+        'text': message
     }
     try:
         response = requests.post(api_url, json=payload, timeout=15)
@@ -183,7 +184,8 @@ def main():
 
         except Exception as e:
             print(f"{Color.RED}A serious error occurred while processing account {masked_bduss}: {e}{Color.END}")
-            send_telegram_message(f"Account *{escape_markdown(masked_bduss)}* encountered an exception\n*Error message*: `{escape_markdown(str(e))}`")
+            # Send error notification as plain text
+            send_telegram_message(f"Account {masked_bduss} encountered an exception\nError message: {str(e)}")
 
         # Print and send a summary for the individual account
         print(f"\n{Color.BLUE}--- Account {masked_bduss} Sign-in Summary ---{Color.END}")
@@ -193,21 +195,22 @@ def main():
         print(f"  {Color.RED}Failed sign-ins: {summary['failed']}{Color.END}")
         
         
+        # Construct the summary message as plain text
         tg_summary_msg = (
-            f"*Account Sign-in Summary: `{escape_markdown(masked_bduss)}`*\n\n"
-            f"总计贴吧: `{summary['total']}`\n"
-            f"✅ *成功*: `{summary['success']}`\n"
-            f"🟡 *已签*: `{summary['already_signed']}`\n"
-            f"🔴 *失败*: `{summary['failed']}`\n"
+            f"Account Sign-in Summary: {masked_bduss}\n\n"
+            f"Total Forums: {summary['total']}\n"
+            f"✅ Success: {summary['success']}\n"
+            f"🟡 Already Signed: {summary['already_signed']}\n"
+            f"🔴 Failed: {summary['failed']}\n"
         )
 
         if summary["failed_list"]:
             print(f"  {Color.RED}List of failures:{Color.END}")
-            tg_summary_msg += "\n*Details of failures*:\n"
+            tg_summary_msg += "\nDetails of failures:\n"
             for item in summary["failed_list"]:
                 print(f"    - {item}")
-                
-                tg_summary_msg += f"🔴 `{escape_markdown(item)}`\n"
+                # Use a simple hyphen for the list in plain text
+                tg_summary_msg += f"- {item}\n"
         print("-" * 45)
         send_telegram_message(tg_summary_msg)
 
