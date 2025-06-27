@@ -1,159 +1,221 @@
-# main.py
-import os
 import requests
 import hashlib
 import time
 import copy
 import logging
 import random
-from requests.exceptions import RequestException
+import os
+from requests.exceptions import ReadTimeout, ConnectTimeout, RequestException
 from json.decoder import JSONDecodeError
 
-# --- 日志和颜色设置 ---
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-logger = logging.getLogger(__name__)
+# --- Configuration from Environment Variables ---
+BDUSS_LIST = os.environ.get("BDUSS_LIST", "").split()
+TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
-class Color:
-    RED, GREEN, YELLOW, BLUE, END = '\033[91m', '\033[92m', '\033[93m', '\033[94m', '\033[0m'
-
-# --- 全局常量 ---
+# --- Global Constants ---
 LIKIE_URL = "http://c.tieba.baidu.com/c/f/forum/like"
 TBS_URL = "http://tieba.baidu.com/dc/common/tbs"
 SIGN_URL = "http://c.tieba.baidu.com/c/c/forum/sign"
 SIGN_KEY = 'tiebaclient!!!'
 USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36'
+
+# --- Terminal Colors ---
+class Color:
+    RED = '\033[91m'
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    END = '\033[0m'
+
+# --- Logging and Session Setup ---
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 session = requests.Session()
 session.headers.update({'User-Agent': USER_AGENT})
 
-# --- 核心函数 ---
-
-def send_telegram_message(message: str, token: str, chat_id: str):
-    if not token or not chat_id:
-        return
-    api_url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {'chat_id': chat_id, 'text': message, 'parse_mode': 'MarkdownV2'}
-    try:
-        response = requests.post(api_url, json=payload, timeout=15)
-        if response.status_code == 200:
-            logger.info("Telegram 总结报告发送成功。")
-        else:
-            logger.error(f"发送 Telegram 消息失败: {response.status_code} - {response.text}")
-    except RequestException as e:
-        logger.error(f"发送 Telegram 消息时网络异常: {e}")
 
 def escape_markdown(text: str) -> str:
+    """Escapes special characters for Telegram MarkdownV2."""
     escape_chars = r'_*[]()~`>#+-=|{}.!'
     return ''.join(f'\\{char}' if char in escape_chars else char for char in str(text))
 
+def send_telegram_message(message: str):
+    """Sends a formatted message via Telegram Bot."""
+    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+        return
+
+    api_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {
+        'chat_id': TELEGRAM_CHAT_ID,
+        'text': message,
+        'parse_mode': 'MarkdownV2'
+    }
+    try:
+        response = requests.post(api_url, json=payload, timeout=15)
+        if response.status_code == 200:
+            logger.info("Telegram summary report sent successfully.")
+        else:
+            logger.error(f"Failed to send Telegram message: {response.status_code} - {response.text}")
+    except RequestException as e:
+        logger.error(f"Network error while sending Telegram message: {e}")
+
 def encode_data(data: dict) -> dict:
+    """Calculates the signature for Tieba client API requests."""
     sorted_items = sorted(data.items())
     s = "".join(f"{k}={v}" for k, v in sorted_items)
     signed_str = s + SIGN_KEY
-    data['sign'] = hashlib.md5(signed_str.encode("utf-8")).hexdigest().upper()
+    sign = hashlib.md5(signed_str.encode("utf-8")).hexdigest().upper()
+    data['sign'] = sign
     return data
 
 def get_tbs(bduss: str) -> str:
-    logger.info("正在获取 tbs...")
-    response = session.get(TBS_URL, headers={'Cookie': f'BDUSS={bduss}'}, timeout=10)
-    response.raise_for_status()
-    tbs_data = response.json()
-    if tbs_data.get('is_login') == 0: raise ValueError("BDUSS 已失效，请重新获取。")
-    tbs = tbs_data.get('tbs')
-    if not tbs: raise ValueError("未能从响应中获取 tbs。")
-    logger.info("获取 tbs 成功。")
-    return tbs
+    """Gets the tbs token for request verification."""
+    logger.info("Getting tbs...")
+    headers = {'Cookie': f'BDUSS={bduss}'}
+    try:
+        response = session.get(TBS_URL, headers=headers, timeout=10)
+        response.raise_for_status()
+        tbs_data = response.json()
+        if tbs_data.get('is_login') == 0:
+            raise ValueError("BDUSS is invalid. Please update it.")
+        tbs = tbs_data.get('tbs')
+        if not tbs:
+            raise ValueError("Failed to get tbs from the response.")
+        logger.info(f"Successfully got tbs: {tbs}")
+        return tbs
+    except (RequestException, JSONDecodeError, ValueError) as e:
+        logger.error(f"Failed to get tbs: {e}")
+        raise
 
 def get_favorite_forums(bduss: str) -> list:
-    logger.info("正在获取关注的贴吧列表...")
-    collected_forums = []
-    page = 1
+    """Gets the list of all followed forums."""
+    logger.info("Getting the list of followed forums...")
+    all_forums = []
+    page_no = 1
     while True:
-        params = {
-            'BDUSS': bduss, '_client_type': '2', '_client_id': 'wappc_1534235498291_488',
-            '_client_version': '9.7.8.0', '_phone_imei': '000000000000000', 'from': '1008621y',
-            'page_no': str(page), 'page_size': '200', 'model': 'MI+5', 'net_type': '1',
-            'timestamp': str(int(time.time())), 'vcode_tag': '11',
-        }
-        signed_params = encode_data(copy.deepcopy(params))
+        data = {'BDUSS': bduss, '_client_type': '2', '_client_version': '9.7.8.0', 'page_no': str(page_no), 'page_size': '100'}
+        signed_data = encode_data(copy.deepcopy(data))
         try:
-            response = session.post(LIKIE_URL, data=signed_params, timeout=10)
-            data = response.json()
-            forum_list = data.get('forum_list', {})
-            if forum_list:
-                if 'gconforum' in forum_list: collected_forums.extend(forum_list['gconforum'])
-                if 'non_gconforum' in forum_list: collected_forums.extend(forum_list['non-gconforum'])
-            if data.get('has_more') != '1': break
-            page += 1
-            time.sleep(random.uniform(0.5, 1.0))
+            response = session.post(LIKIE_URL, data=signed_data, timeout=10)
+            response.raise_for_status()
+            res_json = response.json()
+            forum_list_data = res_json.get('forum_list', {})
+            if forum_list_data:
+                if 'gconforum' in forum_list_data: all_forums.extend(forum_list_data['gconforum'])
+                if 'non-gconforum' in forum_list_data: all_forums.extend(forum_list_data['non-gconforum'])
+            if res_json.get('has_more') == '1':
+                logger.info(f"Got page {page_no}, continuing...")
+                page_no += 1
+                time.sleep(random.uniform(0.5, 1.5))
+            else:
+                break
         except (RequestException, JSONDecodeError) as e:
-            logger.error(f"获取第 {page} 页贴吧时出错: {e}")
+            logger.error(f"Error getting page {page_no} of the forum list: {e}")
             break
-            
-    unique_forums = list({f['id']: f for f in collected_forums}.values())
-    logger.info(f"获取贴吧列表完成，共 {len(unique_forums)} 个。")
+    unique_forums = list({f['id']: f for f in all_forums}.values())
+    logger.info(f"Finished getting the forum list, a total of {len(unique_forums)} forums.")
     return unique_forums
 
 def client_sign(bduss: str, tbs: str, forum: dict) -> dict:
-    data = {
-        'BDUSS': bduss, 'fid': forum.get("id"), 'kw': forum.get("name"), 'tbs': tbs,
-        '_client_type': '2', '_client_version': '9.7.8.0', '_phone_imei': '000000000000000',
-        'model': 'MI+5', 'net_type': "1", 'timestamp': str(int(time.time())),
-    }
+    """Signs in to a single forum."""
+    forum_name = forum.get("name", "Unknown")
+    data = {'BDUSS': bduss, 'fid': forum.get("id"), 'kw': forum_name, 'tbs': tbs, '_client_type': '2', '_client_version': '12.28.1.0', '_phone_imei': '000000000000000', 'net_type': "1"}
     signed_data = encode_data(copy.deepcopy(data))
     try:
-        res = session.post(SIGN_URL, data=signed_data, timeout=15).json()
-        if res.get("error_code") == "0":
-            info = res.get("user_info", {})
-            return {"status": "success", "message": f"经验+{info.get('sign_bonus_point', 'N/A')}，第{info.get('user_sign_rank', 'N/A')}个"}
-        elif res.get("error_code") == "160002":
-            return {"status": "already_signed", "message": "今天已经签到过了"}
-        return {"status": "failed", "message": f"Code:{res.get('error_code')}, Msg:{res.get('error_msg', '未知')}"}
+        response = session.post(SIGN_URL, data=signed_data, timeout=15)
+        response.raise_for_status()
+        res_json = response.json()
+        error_code = res_json.get("error_code")
+        if error_code == "0":
+            user_info = res_json.get("user_info", {})
+            return {"status": "success", "message": f"Experience +{user_info.get('sign_bonus_point', 'N/A')}, signed in as number {user_info.get('user_sign_rank', 'N/A')}"}
+        elif error_code == "160002":
+            return {"status": "already_signed", "message": "Already signed in today"}
+        else:
+            return {"status": "failed", "message": f"Code:{error_code}, Msg:{res_json.get('error_msg', 'Unknown')}"}
+    except (ReadTimeout, ConnectTimeout):
+        return {"status": "failed", "message": "Request timed out"}
     except (RequestException, JSONDecodeError) as e:
-        return {"status": "failed", "message": f"请求或解析异常: {e}"}
+        return {"status": "failed", "message": f"Request or parsing exception: {e}"}
 
 def main():
-    # 从环境变量中安全地读取机密信息
-    bduss_string = os.environ.get("BDUSS_SECRET")
-    tg_token = os.environ.get("TG_TOKEN")
-    tg_chat_id = os.environ.get("TG_CHAT_ID")
-    
-    if not bduss_string:
-        logger.error("未在 GitHub Secrets 中配置 BDUSS_SECRET。")
-        raise ValueError("BDUSS_SECRET is not set")
-        
-    valid_bduss_list = [b.strip() for b in bduss_string.split('#') if b.strip()]
-    logger.info(f"检测到 {len(valid_bduss_list)} 个账户，签到任务开始...")
+    """Main execution function."""
+    if not BDUSS_LIST:
+        print(f"{Color.RED}Error: No valid BDUSS configured in the BDUSS_LIST secret.{Color.END}")
+        return
 
-    for i, bduss in enumerate(valid_bduss_list):
+    print(f"{Color.BLUE}Detected {len(BDUSS_LIST)} accounts, starting sign-in task...{Color.END}\n" + "="*60)
+
+    for i, bduss in enumerate(BDUSS_LIST):
         masked_bduss = bduss[:6] + '****' + bduss[-6:]
+        print(f"\n{Color.BLUE}---> Starting sign-in for account {i+1} ({masked_bduss}) <---{Color.END}")
         summary = {"success": 0, "already_signed": 0, "failed": 0, "failed_list": [], "total": 0}
         
         try:
             tbs = get_tbs(bduss)
-            forums = get_favorite_forums(bduss)
-            summary['total'] = len(forums)
+            favorite_forums = get_favorite_forums(bduss)
+            total_forums = len(favorite_forums)
+            summary['total'] = total_forums
+            
+            if not favorite_forums:
+                print(f"{Color.YELLOW}This account does not follow any forums, skipping.{Color.END}")
+                continue
 
-            for idx, forum in enumerate(forums):
-                res = client_sign(bduss, tbs, forum)
-                summary[res['status']] += 1
-                logger.info(f"[{idx+1}/{summary['total']}] 【{forum.get('name')}】: {res['message']}")
-                if res['status'] == 'failed': summary['failed_list'].append(f"{forum.get('name')} ({res['message']})")
+            print(f"{Color.BLUE}Starting to sign in to {total_forums} forums...{Color.END}")
+            for index, forum in enumerate(favorite_forums):
+                forum_name = forum.get("name", "Unknown")
+                result = client_sign(bduss, tbs, forum)
+                status, message = result["status"], result["message"]
+                
+                if status == "success":
+                    summary["success"] += 1
+                    print(f"[{index+1}/{total_forums}] {Color.GREEN}【{forum_name}】Success: {message}{Color.END}")
+                elif status == "already_signed":
+                    summary["already_signed"] += 1
+                    print(f"[{index+1}/{total_forums}] {Color.YELLOW}【{forum_name}】Already signed in: {message}{Color.END}")
+                else:
+                    summary["failed"] += 1
+                    summary["failed_list"].append(f"{forum_name} ({message})")
+                    print(f"[{index+1}/{total_forums}] {Color.RED}【{forum_name}】Failed: {message}{Color.END}")
+                
                 time.sleep(random.uniform(1.0, 2.5))
+
         except Exception as e:
-            logger.error(f"账户 {masked_bduss} 处理时发生严重错误: {e}")
-            send_telegram_message(f"*账户签到异常: {escape_markdown(masked_bduss)}*\n*错误信息*: `{escape_markdown(str(e))}`", tg_token, tg_chat_id)
-            continue
+            print(f"{Color.RED}A serious error occurred while processing account {masked_bduss}: {e}{Color.END}")
+            send_telegram_message(f"Account *{escape_markdown(masked_bduss)}* encountered an exception\n*Error message*: `{escape_markdown(str(e))}`")
 
-        # 准备并发送总结报告
-        tg_msg = (f"*账户签到总结: {escape_markdown(masked_bduss)}*\n\n"
-                  f"总计贴吧: `{summary['total']}`\n✅ *成功*: `{summary['success']}`\n"
-                  f"🟡 *已签*: `{summary['already_signed']}`\n🔴 *失败*: `{summary['failed']}`\n")
-        if summary['failed_list']:
-            tg_msg += "\n*失败列表详情*:\n" + "\n".join(f"\\- `{escape_markdown(item)}`" for item in summary['failed_list'])
-        send_telegram_message(tg_msg, tg_token, tg_chat_id)
+        # Print and send a summary for the individual account
+        print(f"\n{Color.BLUE}--- Account {masked_bduss} Sign-in Summary ---{Color.END}")
+        print(f"  Total forums: {summary['total']}")
+        print(f"  {Color.GREEN}Successful sign-ins: {summary['success']}{Color.END}")
+        print(f"  {Color.YELLOW}Already signed in: {summary['already_signed']}{Color.END}")
+        print(f"  {Color.RED}Failed sign-ins: {summary['failed']}{Color.END}")
+        
+        # Prepare the Telegram message
+        tg_summary_msg = (
+            f"*Account Sign-in Summary: {escape_markdown(masked_bduss)}*\n\n"
+            f"Total forums: `{summary['total']}`\n"
+            f"✅ *Success*: `{summary['success']}`\n"
+            f"🟡 *Already signed in*: `{summary['already_signed']}`\n"
+            f"🔴 *Failed*: `{summary['failed']}`\n"
+        )
+        if summary["failed_list"]:
+            print(f"  {Color.RED}List of failures:{Color.END}")
+            tg_summary_msg += "\n*Details of failures*:\n"
+            for item in summary["failed_list"]:
+                print(f"    - {item}")
+                tg_summary_msg += f"\\- `{escape_markdown(item)}`\n"
+        print("-" * 45)
+        send_telegram_message(tg_summary_msg)
 
-    logger.info("所有账户签到任务已完成！")
-    send_telegram_message("✅ 所有账户签到任务已完成\\.", tg_token, tg_chat_id)
+    final_notice = "✅ All account sign-in tasks have been completed\\."
+    print(f"\n{Color.BLUE}--- Sign-in Task Completed ---{Color.END}")
+    print(f"{final_notice}\n")
+    print("="*60)
+
+    # Send the final notification
+    send_telegram_message(final_notice)
 
 if __name__ == '__main__':
     main()
