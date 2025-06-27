@@ -200,12 +200,14 @@ def main():
             f"🟡 *Already signed in*: `{summary['already_signed']}`\n"
             f"🔴 *Failed*: `{summary['failed']}`\n"
         )
+
         if summary["failed_list"]:
             print(f"  {Color.RED}List of failures:{Color.END}")
             tg_summary_msg += "\n*Details of failures*:\n"
             for item in summary["failed_list"]:
                 print(f"    - {item}")
-                tg_summary_msg += f"\\- `{escape_markdown(item)}`\n"
+                
+                tg_summary_msg += f"🔴 `{escape_markdown(item)}`\n"
         print("-" * 45)
         send_telegram_message(tg_summary_msg)
 
