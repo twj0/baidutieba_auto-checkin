@@ -1,5 +1,5 @@
 
-# 百度贴吧自动签到脚本 (Baidu Tieba Auto Sign-in)
+# 百度贴吧自动签到脚本 (Baidu Tieba Auto check-in)
 
 [![Baidu Tieba Check-in](https://github.com/twj0/baidutieba_auto-checkin/actions/workflows/main.yml/badge.svg)](https://github.com/twj0/baidutieba_auto-checkin/actions/workflows/main.yml)
 
