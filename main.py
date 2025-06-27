@@ -192,13 +192,13 @@ def main():
         print(f"  {Color.YELLOW}Already signed in: {summary['already_signed']}{Color.END}")
         print(f"  {Color.RED}Failed sign-ins: {summary['failed']}{Color.END}")
         
-        # Prepare the Telegram message
+        
         tg_summary_msg = (
-            f"*Account Sign-in Summary: {escape_markdown(masked_bduss)}*\n\n"
-            f"Total forums: `{summary['total']}`\n"
-            f"✅ *Success*: `{summary['success']}`\n"
-            f"🟡 *Already signed in*: `{summary['already_signed']}`\n"
-            f"🔴 *Failed*: `{summary['failed']}`\n"
+            f"*Account Sign-in Summary: `{escape_markdown(masked_bduss)}`*\n\n"
+            f"总计贴吧: `{summary['total']}`\n"
+            f"✅ *成功*: `{summary['success']}`\n"
+            f"🟡 *已签*: `{summary['already_signed']}`\n"
+            f"🔴 *失败*: `{summary['failed']}`\n"
         )
 
         if summary["failed_list"]:
@@ -211,7 +211,7 @@ def main():
         print("-" * 45)
         send_telegram_message(tg_summary_msg)
 
-    final_notice = "✅ All account sign-in tasks have been completed\\."
+    final_notice = "✅ All account sign-in tasks have been completed."
     print(f"\n{Color.BLUE}--- Sign-in Task Completed ---{Color.END}")
     print(f"{final_notice}\n")
     print("="*60)
