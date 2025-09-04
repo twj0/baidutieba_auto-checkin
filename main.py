@@ -149,6 +149,11 @@ def main():
         accounts = json.loads(ACCOUNTS_JSON)
         if not isinstance(accounts, list):
             raise json.JSONDecodeError("JSON is not a list", ACCOUNTS_JSON, 0)
+        
+        # Auto-wrap a single account's cookie list into the multi-account structure
+        if accounts and isinstance(accounts[0], dict):
+            accounts = [accounts]
+            
     except json.JSONDecodeError:
         print(f"{Color.RED}Error: Invalid JSON format in ACCOUNTS_JSON secret. It should be a JSON array of cookie arrays.{Color.END}")
         return
