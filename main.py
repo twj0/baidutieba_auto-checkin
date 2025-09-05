@@ -8,6 +8,10 @@ import os
 from requests.exceptions import ReadTimeout, ConnectTimeout, RequestException
 from json.decoder import JSONDecodeError
 import json
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # --- Configuration from Environment Variables ---
 # ACCOUNTS_JSON should be a JSON string of an array of cookie arrays.
