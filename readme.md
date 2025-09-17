@@ -31,16 +31,14 @@
 
 | Secret 名称          | 描述                                                                                                                              | 是否必须 |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| `BDUSS_LIST`         | **你的百度账户 Cookie 里面的 `BDUSS` 值**。这是脚本登录的唯一凭证。**多个账户请用空格隔开**。例如：`BDUSS_A BDUSS_B`                                       | **是**   |
+| `ACCOUNTS_JSON`         | 百度账户 *Cookie* 的 **json** 格式                                       | **是**   |
 | `TELEGRAM_BOT_TOKEN` | 你的 Telegram Bot 的 Token。在 Telegram 中向 [@BotFather](https://t.me/BotFather) 发送 `/newbot` 创建机器人即可获取。              | 否       |
 | `TELEGRAM_CHAT_ID`   | 你的 Telegram 用户 ID。向 [@userinfobot](https://t.me/userinfobot) 发送 `/start` 即可获取你的 Chat ID。                            | 否       |
 
-**如何获取 `BDUSS`？**
-1. 在浏览器中登录你的[百度贴吧](https://tieba.baidu.com/)。
-2. 按 `F12` 打开开发者工具。
-3. 依次选择 **Application (应用)** -> **Cookies** -> `https://tieba.baidu.com`。
-4. 在列表中找到名为 `BDUSS` 的条目，将其 `Value` (值) 完整地复制出来即可。
-
+**如何获取 `ACCOUNTS_JSON`？**
+1. 安装浏览器插件：[cookie editor](https://cookieeditor.org/), 插件商店直接搜索应该也可以搜到。
+2. 在浏览器中登录你的[百度贴吧](https://tieba.baidu.com/)。
+3. 直接点击插件图标，导出json格式就好了。
 ### 步骤 3：启用 GitHub Actions
 
 Fork 后的仓库，其 Actions 默认是禁用的，需要你手动启用。
