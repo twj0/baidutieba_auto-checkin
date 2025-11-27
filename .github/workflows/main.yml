@@ -36,6 +36,7 @@ jobs:
     - name: Run sign-in script
       env:
         ACCOUNTS_JSON: ${{ secrets.ACCOUNTS_JSON }}
+        BDUSS_LIST: ${{ secrets.BDUSS_LIST }}
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
       run: python main.py

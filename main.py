@@ -16,7 +16,8 @@ load_dotenv()
 # --- Configuration from Environment Variables ---
 # ACCOUNTS_JSON should be a JSON string of an array of cookie arrays.
 # e.g., [[{"name": "BDUSS", "value": "..."}], [{"name": "BDUSS", "value": "..."}]]
-ACCOUNTS_JSON = os.environ.get("ACCOUNTS_JSON", "[]")
+ACCOUNTS_JSON = os.environ.get("ACCOUNTS_JSON")
+BDUSS_LIST = os.environ.get("BDUSS_LIST", "")
 TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
 
@@ -150,20 +151,26 @@ def client_sign(bduss: str, tbs: str, forum: dict) -> dict:
 def main():
     """Main execution function."""
     try:
-        accounts = json.loads(ACCOUNTS_JSON)
-        if not isinstance(accounts, list):
-            raise json.JSONDecodeError("JSON is not a list", ACCOUNTS_JSON, 0)
+        accounts = []
+        if ACCOUNTS_JSON:
+            accounts = json.loads(ACCOUNTS_JSON)
+            if not isinstance(accounts, list):
+                raise json.JSONDecodeError("JSON is not a list", ACCOUNTS_JSON, 0)
         
         # Auto-wrap a single account's cookie list into the multi-account structure
         if accounts and isinstance(accounts[0], dict):
             accounts = [accounts]
+
+        if not accounts and BDUSS_LIST:
+            bduss_values = [bduss.strip() for bduss in BDUSS_LIST.split() if bduss.strip()]
+            accounts = [[{"name": "BDUSS", "value": bduss}] for bduss in bduss_values]
             
     except json.JSONDecodeError:
         print(f"{Color.RED}Error: Invalid JSON format in ACCOUNTS_JSON secret. It should be a JSON array of cookie arrays.{Color.END}")
         return
 
     if not accounts:
-        print(f"{Color.RED}Error: No accounts configured in the ACCOUNTS_JSON secret.{Color.END}")
+        print(f"{Color.RED}Error: No accounts configured. Please set ACCOUNTS_JSON or BDUSS_LIST in the environment variables or GitHub Secrets.{Color.END}")
         return
 
     print(f"{Color.BLUE}Detected {len(accounts)} accounts, starting sign-in task...{Color.END}\n" + "="*60)
