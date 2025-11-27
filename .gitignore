@@ -1,2 +1,4 @@
 local_test.py
 .env
+.vscode/launch.json
+.venv
