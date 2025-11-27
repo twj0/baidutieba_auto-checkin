@@ -8,7 +8,6 @@
 ## ✨ 主要功能
 
 - **✨ 自动化每日签到**：脚本默认在每天的 UTC 时间 0 点（北京时间上午 8 点）自动运行。
-- **✨ 支持多账户**：可以轻松配置多个百度账户，脚本会依次为每个账户执行签到任务。
 - **✨ Telegram 结果通知**：每次任务执行完毕后，会将详细的签到总结报告（成功、已签、失败列表等）发送到你的 Telegram Bot，让你对签到结果了如指掌。
 - **✨ 无需服务器**：完全基于免费的 GitHub Actions 服务，你只需要拥有一个 GitHub 账户。
 - **✨ 配置简单安全**：所有敏感信息（如账户 Cookie、Telegram Token）都存储在 GitHub 的加密 Secrets 中，代码中不包含任何个人隐私。
@@ -29,34 +28,17 @@
 2.  在左侧菜单中，依次选择 **Secrets and variables** -> **Actions**。
 3.  点击右上角的 **New repository secret** 按钮，依次创建以下几个 Secret：
 
-| Secret 名称          | 描述                                                                                                              | 是否必须 |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------- | -------- |
-| `ACCOUNTS_JSON`      | 通过浏览器导出的 Cookie JSON 字符串。支持**单账户或多账户**，格式为“cookie 数组的数组”，详见下方示例。          | **是**   |
-| `TELEGRAM_BOT_TOKEN` | 你的 Telegram Bot 的 Token。在 Telegram 中向 [@BotFather](https://t.me/BotFather) 发送 `/newbot` 创建机器人即可获取。 | 否       |
-| `TELEGRAM_CHAT_ID`   | 你的 Telegram 用户 ID。向 [@userinfobot](https://t.me/userinfobot) 发送 `/start` 即可获取你的 Chat ID。              | 否       |
+| Secret 名称          | 描述                                                                                                                              | 是否必须 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| `BDUSS_LIST`         | **你的百度账户 Cookie 里面的 `BDUSS` 值**。这是脚本登录的唯一凭证。**多个账户请用空格隔开**。例如：`BDUSS_A BDUSS_B`                                       | **是**   |
+| `TELEGRAM_BOT_TOKEN` | 你的 Telegram Bot 的 Token。在 Telegram 中向 [@BotFather](https://t.me/BotFather) 发送 `/newbot` 创建机器人即可获取。              | 否       |
+| `TELEGRAM_CHAT_ID`   | 你的 Telegram 用户 ID。向 [@userinfobot](https://t.me/userinfobot) 发送 `/start` 即可获取你的 Chat ID。                            | 否       |
 
-**如何获取并配置 `ACCOUNTS_JSON`？**
-
-1. 在浏览器中登录你的 [百度贴吧](https://tieba.baidu.com/)。
-2. 按 `F12` 打开开发者工具，切换到 **Application (应用)** 或 **存储(Storage)** 相关面板。
-3. 在左侧选择 **Cookies** -> `https://tieba.baidu.com` 以及 `.baidu.com`，导出或复制全部 Cookie 为 JSON（不同浏览器菜单名称略有不同，一般为 “Copy all as JSON” 之类）。
-4. 得到的通常是一个 **数组**，形如：`[ { "name": "BDUSS", "value": "..." }, ... ]`，这代表一个账户的完整 Cookie。
-5. **单账户**：可以直接把这一整个数组作为 `ACCOUNTS_JSON` 的值（脚本会自动兼容这种格式）。
-6. **多账户**：为每个账户分别获取一份 Cookie 数组，然后再包一层外层数组，例如：
-
-    ```json
-    [
-      [
-        { "name": "BDUSS", "value": "BDUSS_VALUE_ACCOUNT1" },
-        { "name": "STOKEN", "value": "STOKEN_VALUE_ACCOUNT1" }
-      ],
-      [
-        { "name": "BDUSS", "value": "BDUSS_VALUE_ACCOUNT2" }
-      ]
-    ]
-    ```
-
-7. 在 GitHub Secrets 中创建名为 `ACCOUNTS_JSON` 的 Secret，把上述 JSON **完整粘贴** 进去保存即可（是否换行/缩进都没关系）。
+**如何获取 `BDUSS`？**
+1. 在浏览器中登录你的[百度贴吧](https://tieba.baidu.com/)。
+2. 按 `F12` 打开开发者工具。
+3. 依次选择 **Application (应用)** -> **Cookies** -> `https://tieba.baidu.com`。
+4. 在列表中找到名为 `BDUSS` 的条目，将其 `Value` (值) 完整地复制出来即可。
 
 ### 步骤 3：启用 GitHub Actions
 
